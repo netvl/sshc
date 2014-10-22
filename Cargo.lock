@@ -1,0 +1,33 @@
+[root]
+name = "sshc"
+version = "0.0.1"
+dependencies = [
+ "docopt 0.6.5 (git+https://github.com/BurntSushi/docopt.rs#1c9a63e0362848570f7c503f8891770ebf2d1eab)",
+ "docopt_macros 0.6.5 (git+https://github.com/BurntSushi/docopt.rs#1c9a63e0362848570f7c503f8891770ebf2d1eab)",
+ "ncurses 5.71.1 (git+https://github.com/jeaye/ncurses-rs#e839970267fc1fb8dad3658c04e968bcc546ae18)",
+ "toml 0.1.0 (git+https://github.com/alexcrichton/toml-rs#8a3ba4c65cfa22a3d924293a1fb3a70bfac5e66c)",
+]
+
+[[package]]
+name = "docopt"
+version = "0.6.5"
+source = "git+https://github.com/BurntSushi/docopt.rs#1c9a63e0362848570f7c503f8891770ebf2d1eab"
+
+[[package]]
+name = "docopt_macros"
+version = "0.6.5"
+source = "git+https://github.com/BurntSushi/docopt.rs#1c9a63e0362848570f7c503f8891770ebf2d1eab"
+dependencies = [
+ "docopt 0.6.5 (git+https://github.com/BurntSushi/docopt.rs#1c9a63e0362848570f7c503f8891770ebf2d1eab)",
+]
+
+[[package]]
+name = "ncurses"
+version = "5.71.1"
+source = "git+https://github.com/jeaye/ncurses-rs#e839970267fc1fb8dad3658c04e968bcc546ae18"
+
+[[package]]
+name = "toml"
+version = "0.1.0"
+source = "git+https://github.com/alexcrichton/toml-rs#8a3ba4c65cfa22a3d924293a1fb3a70bfac5e66c"
+

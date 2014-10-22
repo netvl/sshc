@@ -1,0 +1,16 @@
+[package]
+name = "sshc"
+version = "0.0.1"
+authors = ["Vladimir Matveev <vladimir.matweev@gmail.com>"]
+
+[dependencies.ncurses]
+git = "https://github.com/jeaye/ncurses-rs"
+
+[dependencies.toml]
+git = "https://github.com/alexcrichton/toml-rs"
+
+[dependencies.docopt]
+git = "https://github.com/BurntSushi/docopt.rs"
+
+[dependencies.docopt_macros]
+git = "https://github.com/BurntSushi/docopt.rs"

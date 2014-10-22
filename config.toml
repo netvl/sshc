@@ -1,0 +1,11 @@
+[hosts.be_1]
+host = "be-1.example.com"
+port = 2222
+user = "user"
+key = "~/.ssh/be.pem"
+
+[hosts.be_2]
+host = "be-2.example.com"
+# port = 22
+# user = current user
+# key = None
