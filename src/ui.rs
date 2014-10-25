@@ -58,8 +58,9 @@ fn compute_widths(hosts: &data::Hosts) -> (uint, uint, uint, uint) {
     let key_width = hosts.hosts.values()
         .flat_map(|v| v.key.as_ref().map(|k| k[]).into_iter())
         .map(|s| s.len())
-        .max().unwrap();
-    let max_width = number_width + 2 + name_width + 3 + addr_width + 3 + key_width;
+        .max();
+    let max_width = number_width + 2 + name_width + 3 + addr_width + 
+                    key_width.map(|w| 3 + w).unwrap_or(0);
     (number_width, name_width, addr_width, max_width)
 }
 
