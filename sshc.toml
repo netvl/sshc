@@ -1,3 +1,10 @@
+# File format:
+# [hosts.<item-name>]
+# host = "<host address or IP>"
+# port = <SSH port>          # optional, default is 22, of course
+# user = "<user name>"       # optional, default is the current user
+# key = "<path to key file>" # optional, not used by default
+
 [hosts.be_1]
 host = "be-1.example.com"
 port = 2222
