@@ -31,7 +31,7 @@ impl fmt::Show for ConfigError {
             ParserError(ref errs) => {
                 try!(f.write(b"parsing error: "));
                 for e in errs.iter() {
-                    try!(write!(f, "{}; ", e));
+                    try!(write!(f, "{}-{}: {}; ", e.lo, e.hi, e.desc));
                 }
                 Ok(())
             }
