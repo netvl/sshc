@@ -73,10 +73,12 @@ impl Host {
 
 #[cfg(test)]
 mod tests {
+    use std::os;
+
     use super::Host;
 
     macro_rules! svec(
-        ($($e:expr),*) => (vec![$($e.to_string()),*])
+        ($($e:expr),*) => (vec![$($e.into_string()),*])
     )
 
     #[test]
@@ -95,7 +97,8 @@ mod tests {
             user: "user".to_string(),
             key: Some("~/.ssh/key.pem".to_string())
         };
-        assert_eq!(svec!["-i", "~/.ssh/key.pem", "-p", "1234", "user@localhost"], 
+        let expected_key = format!("{}/.ssh/key.pem", os::homedir().unwrap_or_else(|| Path::new("~")).display());
+        assert_eq!(svec!["-i", expected_key, "-p", "1234", "user@localhost"], 
                    m.to_cmd_line());
     }
 }

@@ -3,8 +3,10 @@ use std::mem;
 use std::ptr;
 
 use libc::{c_char, c_int, uid_t, gid_t, size_t};
+#[cfg(target_os = "macos")] use libc::time_t;
 
 #[repr(C)]
+#[cfg(target_os = "linux")]
 struct Passwd {
     name:   *const c_char,
     passwd: *const c_char,
@@ -15,22 +17,41 @@ struct Passwd {
     shell:  *const c_char
 }
 
+#[repr(C)]
+#[cfg(target_os = "macos")]
+struct Passwd {
+    name:   *const c_char,
+    passwd: *const c_char,
+    uid:    uid_t,
+    gid:    gid_t,
+    change: time_t,
+    class:  *const c_char,
+    gecos:  *const c_char,
+    dir:    *const c_char,
+    shell:  *const c_char,
+    expire: time_t,
+    fields: c_int
+}
+
 pub struct PasswdData {
     passwd: Passwd,
     _data: Vec<c_char>
 }
 
 impl PasswdData {
-    fn get_str<'a>(&'a self, p: *const c_char) -> &'a str {
-        unsafe {
-            mem::transmute(CString::new(p, false).as_str().unwrap())
+    fn get_str<'a>(&'a self, p: *const c_char) -> Option<&'a str> {
+        if p.is_null() { None }
+        else {
+            unsafe {
+                mem::transmute(CString::new(p, false).as_str().unwrap())
+            }
         }
     }
 
     pub fn info(&self) -> PasswdInfo {
         PasswdInfo {
-            name: self.get_str(self.passwd.name),
-            passwd: self.get_str(self.passwd.passwd),
+            name: self.get_str(self.passwd.name).unwrap(),
+            passwd: self.get_str(self.passwd.passwd).unwrap(),
             uid: self.passwd.uid as uint,
             gid: self.passwd.gid as uint,
             gecos: self.get_str(self.passwd.gecos),
@@ -45,9 +66,9 @@ pub struct PasswdInfo<'a> {
     pub passwd: &'a str,
     pub uid: uint,
     pub gid: uint,
-    pub gecos: &'a str,
-    pub dir: &'a str,
-    pub shell: &'a str
+    pub gecos: Option<&'a str>,
+    pub dir: Option<&'a str>,
+    pub shell: Option<&'a str>
 }
 
 extern {
