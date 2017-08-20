@@ -1,16 +1,16 @@
 [package]
+authors = ["Vladimir Matveev <vladimir.matweev@gmail.com>"]
 name = "sshc"
 version = "0.0.1"
-authors = ["Vladimir Matveev <vladimir.matweev@gmail.com>"]
 
-[dependencies.ncurses]
-git = "https://github.com/jeaye/ncurses-rs"
+[dependencies]
+clap = "2.26"
+serde = "1.0"
+serde_derive = "1.0"
+toml = "0.4"
+error-chain = "0.10"
 
-[dependencies.toml]
-git = "https://github.com/alexcrichton/toml-rs"
-
-[dependencies.docopt]
-git = "https://github.com/BurntSushi/docopt.rs"
-
-[dependencies.docopt_macros]
-git = "https://github.com/BurntSushi/docopt.rs"
+[dependencies.cursive]
+version = "0.6"
+default-features = false
+features = ["termion-backend"]

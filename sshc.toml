@@ -1,18 +1,109 @@
 # File format:
-# [hosts.<item-name>]
+# [<group>.<subgroup>.<host>]
 # host = "<host address or IP>"
 # port = <SSH port>          # optional, default is 22, of course
 # user = "<user name>"       # optional, default is the current user
 # key = "<path to key file>" # optional, not used by default
+# verbose = true/false       # optional, false by default
+# agent_passthrough = true/false # optional, false by default if no tunnel is configured, true otherwise
+# tunnel = false/tunnelspec  # optional, false by default if no tunnels in chain are configured
+# no_command = false/true    # optional, false by default if no tunnel is configured, true otherwise
 
-[hosts.be_1]
+be_3 = ["user@be-3.example.com:2244:~/.ssh/be.pem"]
+be_4 = [{ host = "be-3.example.com", port = 1234, key = "/bla/bla.pem" }]
+be_5 = ["user@be-5.example.com::~/.ssh/be.pem"]
+
+[[be_1]]
 host = "be-1.example.com"
 port = 2222
 user = "user"
 key = "~/.ssh/be.pem"
+verbose = true
 
-[hosts.be_2]
+[[be_2]]
 host = "be-2.example.com"
 # port = 22
 # user = current user
 # key = None
+# verbose = false
+# agent_passthrough = false
+# tunnel = false
+# no_command = false
+
+# ssh -p 2222 user@some.server -t ssh -i /a/b/c.pem -p 1234 serverplex -t ssh -i ~/whatever.pem -p 1234 googolplex
+[my]
+googolplex = [
+  { host = "some.server", port = 2222, user = "user" },
+  "serverplex:1234:/a/b/c.pem",
+  { host = "googolplex:1234", key = "~/whatever.pem" }
+]
+
+# Equivalent:
+# tunnel = { local = 12345, remote = 12345, remote_host = "localhost" }
+# tunnel = { local = 12345, remote = 12345 }
+# tunnel = { local = 12345 }
+# tunnel = ":12345|localhost:12345"
+# tunnel = ":|localhost:12345"
+# tunnel = ":12345|localhost:"
+# tunnel = ":|:12345"
+# tunnel = ":12345|:"
+# tunnel = 12345
+# Equivalent:
+# tunnel = { local = 12345, remote = 12345, remote_host = "localhost", local_host = "1.2.3.4" }
+# tunnel = { local = 12345, remote = 12345, local_host = "1.2.3.4" }
+# tunnel = { local = 12345, local_host = "1.2.3.4" }
+# tunnel = "1.2.3.4:12345|localhost:12345"
+# tunnel = "1.2.3.4:|localhost:12345"
+# tunnel = "1.2.3.4:12345|localhost:"
+# tunnel = "1.2.3.4:|:12345"
+# tunnel = "1.2.3.4:12345|:"
+
+# ssh -L 12345:localhost:12345 serverplex -t ssh -L 12345:localhost:12345 transplex -N
+[my]
+whatever1 = [
+  { host = "serverplex", tunnel = 12345 },
+  { host = "transplex" },  # taken from above
+]
+
+# ssh -L 1221:localhost:4443 serverplex -t ssh -L 4443:localhost:443 transplex -N
+whatever2full = [
+  { host = "serverplex", tunnel = ":1221|:4433" },
+  { host = "transplex", tunnel = ":4443|:443" }
+]
+
+# ssh -L 1221:transplex:443 serverplex -N
+whatever2alternative = [{ host = "serverplex", tunnel = ":1221|transplex:443" }]
+
+# ssh host1 -t ssh host2 -t ssh -A -L 12345:localhost:12345 host3 -t ssh -A -L 12345:localhost:12345 host4 -t ssh -L 12345:localhost:12345 host5 -N
+whatever4 = [
+  "host1",
+  "host2",
+  { host = "host3", tunnel = 12345 },  # falls "down", incl. agent_passthrough = true
+  "host4",
+  "host5"
+]
+
+# ssh -A -L 1221:localhost:4443 serverplex -t ssh -L 4443:localhost:443 transplex -N
+whatever2 = [
+    { host = "serverplex", tunnel = ":1221|:4443" },
+    { host = "transplex", tunnel = ":4443|:443" }
+]
+#include_local = true       # default: true
+#intermediate_port = 4433   # default: =local_port
+#local_port = 1221          # default: =target_port
+#target_port = 443
+#chain = ["serverplex", "transplex"]
+
+# ssh -A -L 12345:localhost:12345 serverplex -t ssh -L 12345:localhost:12345 transplex -N
+whatever2simpler = [
+    { host = "serverplex", tunnel = 12345 },
+    "transplex"
+]
+
+# ssh -A -L 12345:localhost:12345 host1 -t ssh -A -L 12345:localhost:12345 host2 -t ssh -A -L 12345:localhost:12345 -t ssh -L 1234:localhost:12345 host4 -N
+whatever3 = [
+    { host = "host1", tunnel = 12345 },
+    "host2",
+    "host3",
+    "host4"
+]

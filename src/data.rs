@@ -71,31 +71,3 @@ impl Host {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::Host;
-
-    macro_rules! svec(
-        ($($e:expr),*) => (vec![$($e.to_string()),*])
-    )
-
-    #[test]
-    fn test_to_cmd_line() {
-        let m = Host {
-            host: "localhost".to_string(),
-            port: 1234,
-            user: "user".to_string(),
-            key: None
-        };
-        assert_eq!(svec!["-p", "1234", "user@localhost"], m.to_cmd_line());
-
-        let m = Host {
-            host: "localhost".to_string(),
-            port: 1234,
-            user: "user".to_string(),
-            key: Some("~/.ssh/key.pem".to_string())
-        };
-        assert_eq!(svec!["-i", "~/.ssh/key.pem", "-p", "1234", "user@localhost"], 
-                   m.to_cmd_line());
-    }
-}
