@@ -156,7 +156,7 @@ mod tests {
 
     macro_rules! smap(
         ($($k:expr -> $v:expr),*) => ({
-            let mut hm = ::std::collections::HashMap::new();
+            let mut hm = ::std::collections::TreeMap::new();
             $(hm.insert($k.to_string(), $v);)*
             hm
         })
@@ -179,6 +179,6 @@ mod tests {
                 "second-name" -> data::Host::new("de", 1234, "longer-host", None)
             ]
         };
-        assert_eq!((1, 11, 19), compute_widths(&h));
+        assert_eq!((1, 11, 19, 46), compute_widths(&h));
     }
 }
