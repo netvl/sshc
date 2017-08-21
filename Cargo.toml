@@ -1,15 +1,27 @@
 [package]
 authors = ["Vladimir Matveev <vladimir.matweev@gmail.com>"]
 name = "sshc"
-version = "0.0.1"
+version = "0.1.0"
 
 [dependencies]
+# Command line args
 clap = "2.26"
+
+# Config parsing
 serde = "1.0"
 serde_derive = "1.0"
 toml = "0.4"
-error-chain = "0.10"
 
+# Execution
+exec = "0.3"
+
+# Utilities
+error-chain = "0.10"
+shellexpand = "1.0"
+either = "1.1"
+itertools = "0.6"
+
+# Console UI
 [dependencies.cursive]
 version = "0.6"
 default-features = false

@@ -1,4 +1,3 @@
-use std::fmt;
 use std::fs::File;
 use std::path::Path;
 use std::collections::BTreeMap;
@@ -9,15 +8,22 @@ use toml::Value;
 use toml::value::{Table, Array};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum State<T> {
+    Enabled(T),
+    Disabled,
+    Unset,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SingleJump {
     pub host: String,
-    pub port: u16,
+    pub port: Option<u16>,
     pub user: Option<String>,
     pub key: Option<String>,
-    pub tunnel: Option<Tunnel>,
+    pub tunnel: State<Tunnel>,
     pub verbose: bool,
-    pub agent_passthrough: bool,
-    pub no_command: bool,
+    pub agent_passthrough: State<()>,
+    pub no_command: State<()>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -42,6 +48,15 @@ pub struct ConfigGroup {
 pub enum ConfigItem {
     Definition(ConfigDefinition),
     Subgroup(ConfigGroup),
+}
+
+impl ConfigItem {
+    pub fn is_group(&self) -> bool {
+        match *self {
+            ConfigItem::Subgroup(_) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -148,8 +163,8 @@ impl<'a> SingleJumpContext<'a> {
         let host = host.into();
 
         let port = match table.remove("port") {
-            Some(Value::Integer(i)) if i >= u16::min_value() as i64 && i <= u16::max_value() as i64 => i as u16,
-            None => port.unwrap_or(22),
+            Some(Value::Integer(i)) if i >= u16::min_value() as i64 && i <= u16::max_value() as i64 => Some(i as u16),
+            None => port,
             Some(Value::Integer(i)) =>
                 return self.err(format!("port is invalid: expected number from 0 to 65536, got {}", i)),
             Some(other) =>
@@ -171,12 +186,13 @@ impl<'a> SingleJumpContext<'a> {
         };
 
         let tunnel = match table.remove("tunnel") {
-            Some(Value::Table(table)) => Some(self.tunnel_from_table(table)?),
-            Some(Value::String(string)) => Some(self.tunnel_from_string(string)?),
-            Some(Value::Integer(integer)) => Some(self.tunnel_from_integer(integer)?),
-            None => None,
+            Some(Value::Table(table)) => State::Enabled(self.tunnel_from_table(table)?),
+            Some(Value::String(string)) => State::Enabled(self.tunnel_from_string(string)?),
+            Some(Value::Integer(integer)) => State::Enabled(self.tunnel_from_integer(integer)?),
+            Some(Value::Boolean(false)) => State::Disabled,
+            None => State::Unset,
             Some(other) =>
-                return self.err(format!("tunnel is invalid: expected string or table, got {}", other.type_str()))
+                return self.err(format!("tunnel is invalid: expected string, integer, table or false, got {}", other.type_str()))
         };
 
         let verbose = match table.remove("verbose") {
@@ -186,14 +202,14 @@ impl<'a> SingleJumpContext<'a> {
         };
 
         let agent_passthrough = match table.remove("agent_passthrough") {
-            Some(Value::Boolean(a)) => a,
-            None => false,
+            Some(Value::Boolean(a)) => if a { State::Enabled(()) } else { State::Disabled },
+            None => State::Unset,
             Some(other) => return self.err(format!("agent_passthrough is invalid: expected boolean, got {}", other.type_str())),
         };
 
         let no_command = match table.remove("no_command") {
-            Some(Value::Boolean(n)) => n,
-            None => false,
+            Some(Value::Boolean(n)) => if n { State::Enabled(()) } else { State::Disabled },
+            None => State::Unset,
             Some(other) => return self.err(format!("no_command is invalid: expected boolean, got {}", other.type_str())),
         };
 
@@ -240,6 +256,10 @@ impl<'a> SingleJumpContext<'a> {
 
         let (local_host, local_port) = parse_host_port(local)?;
         let (remote_host, remote_port) = parse_host_port(remote)?;
+
+        if local_port.is_none() && remote_port.is_none() {
+            return self.err("tunnel is invalid: either local or remote port should be configured");
+        }
 
         Ok(Tunnel { local_host, local_port, remote_host, remote_port, })
     }

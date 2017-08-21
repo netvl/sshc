@@ -1,184 +1,176 @@
-use std::char;
-use std::num::Zero;
-use std::os;
+use std::rc::Rc;
+use std::cell::{Cell, RefCell};
 
-use ncurses::*;
+use cursive::Cursive;
+use cursive::event::Key;
+use cursive::traits::*;
+use cursive::views::{SelectView, Dialog, LinearLayout, TextView, DummyView};
+use either::Either;
+use itertools::Itertools;
 
-use data;
-use exec;
+use config::{Config, ConfigItem, ConfigDefinition, ConfigGroup};
+use execution::Execution;
 
 struct State {
-    hosts: data::Hosts,
-    selected: uint
+    config: Config,
+    path: RefCell<Vec<String>>,
+    execute: Cell<bool>,
 }
 
 impl State {
-    #[inline]
-    fn new(hosts: data::Hosts) -> State {
-        State {
-            hosts: hosts,
-            selected: 0
+    fn current_item(&self) -> Either<&ConfigDefinition, &ConfigGroup> {
+        let mut current_group = &self.config.root;
+        for path_item in self.path.borrow().iter() {
+            match current_group.definitions[path_item] {
+                ConfigItem::Subgroup(ref group) => current_group = group,
+                ConfigItem::Definition(ref definition) => return Either::Left(definition),
+            }
         }
-    }
-
-    fn move_up(&mut self) {
-        if self.selected > 0 {
-            self.selected -= 1;
-        }
-    }
-
-    fn move_down(&mut self) {
-        if self.selected < self.hosts.hosts.len()-1 {
-            self.selected += 1;
-        }
-    }
-
-    fn find_selected(&self) -> &String {
-        for (n, k) in self.hosts.hosts.keys().enumerate() {
-            if n == self.selected { return k; }
-        }
-        unreachable!()
+        Either::Right(current_group)
     }
 }
 
-fn num_len<N: Div<N, N>+Zero+PartialEq+FromPrimitive>(mut n: N) -> uint {
-    let mut r = 0;
-    while { n = n / FromPrimitive::from_u8(10).unwrap(); r += 1; n != Zero::zero() } {}
-    r
+pub fn run(config: Config) {
+    let state = Rc::new(State {
+        config,
+        path: RefCell::new(Vec::new()),
+        execute: Cell::new(false),
+    });
+
+    let mut siv = Cursive::new();
+
+    render_current_group(&mut siv, state.clone(), &state.config.root, None);
+
+    siv.run();
+    drop(siv);  // to dispose of backend messing with the terminal
+
+    if state.execute.get() {
+        if let Either::Left(definition) = state.current_item() {
+            let execution = Execution::from(definition.clone());
+            execution.run();
+        }
+    }
 }
 
-fn compute_widths(hosts: &data::Hosts) -> (uint, uint, uint, uint) {
-    if hosts.hosts.is_empty() { return (0, 0, 0, 0) }
+fn render_current_group(s: &mut Cursive, state: Rc<State>, group: &ConfigGroup, last_selected: Option<String>) {
+    s.pop_layer();
 
-    let number_width = num_len(hosts.hosts.len());
-    let name_width = hosts.hosts.keys().map(|k| k.len()).max().unwrap();
-    let addr_width = hosts.hosts.values()
-        .map(|v| v.user.len() + v.host.len() + num_len(v.port) as uint + 2)
-        .max().unwrap();
-    let key_width = hosts.hosts.values()
-        .flat_map(|v| v.key.as_ref().map(|k| k[]).into_iter())
-        .map(|s| s.len())
-        .max();
-    let max_width = number_width + 2 + name_width + 3 + addr_width + 
-                    key_width.map(|w| 3 + w).unwrap_or(0);
-    (number_width, name_width, addr_width, max_width)
-}
+    let mut select = SelectView::<String>::new()
+        .on_submit({
+            let state = state.clone();
+            move |s: &mut Cursive, name: &String| handle_selection_submit(s, state.clone(), name)
+        });
 
-fn render(state: &mut State) {
-    let (number_width, name_width, addr_width, max_width) = compute_widths(&state.hosts);
+    let mut items = Vec::new();
     
-    for (n, (name, h)) in state.hosts.hosts.iter().enumerate() {
-        let (c_x, c_y) = (5, 3+n as i32);
+    if !state.path.borrow().is_empty() {
+        items.push(("../".into(), "".into()));
+    }
 
-        let addr = format!("{}@{}:{}", h.user, h.host, h.port);
-        let mut s = format!("{0:1$u}. {2:3$s} - {4:5$s}", 
-                            n+1, number_width, name[], name_width, addr, addr_width);
-        if let Some(ref key) = h.key {
-            s.push_str(" - ");
-            s.push_str(key[]);
+    let groups = group.definitions.iter().filter(|&(_, i)| i.is_group());
+    let definitions = group.definitions.iter().filter(|&(_, i)| !i.is_group());
+    for (k, _) in groups {
+        items.push((k.clone() + "/", k.clone()));
+    }
+    for (k, _) in definitions {
+        items.push((k.clone(), k.clone()));
+    }
+
+    select.add_all(items.iter().cloned());
+
+    if let Some(last_selected) = last_selected {
+        if let Some(idx) = items.iter().position(|&(_, ref v)| v == &last_selected) {
+            select.set_selection(idx);
         }
+    }
 
-        mvprintw(c_y, c_x, s[]);
+    let layout = LinearLayout::vertical()
+        .child(TextView::new(format_path(state.path.borrow().iter())))
+        .child(DummyView)
+        .child(select.fixed_size((80, 10)))
+        .child(DummyView);
 
-        mv(c_y, c_x);
-        if n == state.selected {
-            chgat(max_width as i32, A_REVERSE(), 0);
+    s.add_layer(
+        Dialog::around(layout)
+            .title("Profiles")
+            .button("Quit", |s| s.quit())
+    );
+
+    // up one level
+    s.add_global_callback(Key::Esc, {
+        let state = state.clone();
+        move |s| handle_selection_submit(s, state.clone(), "")
+    });
+}
+
+fn render_current_definition(s: &mut Cursive, state: Rc<State>, definition: &ConfigDefinition) {
+    s.pop_layer();
+
+    let layout = LinearLayout::vertical()
+        .child(TextView::new("Will execute the following command:"))
+        .child(DummyView)
+        .child(TextView::new(Execution::from(definition.clone()).command_line()))
+        .child(DummyView)
+        .child(TextView::new("Press Enter to run, Esc to go back"));
+
+    s.add_layer(
+        Dialog::around(layout)
+            .title(format!("Profile {}", state.path.borrow().iter().join(".")))
+    );
+
+    s.add_global_callback(Key::Enter, {
+        let state = state.clone();
+        move |s| execute_definition(s, state.clone())
+    });
+
+    s.add_global_callback(Key::Esc, {
+        let state = state.clone();
+        move |s: &mut Cursive| {
+            s.add_global_callback(Key::Enter, |_| {});
+            s.add_global_callback(Key::Esc, |_| {});
+            handle_selection_submit(s, state.clone(), "")
+        }
+    });
+}
+
+fn handle_selection_submit(s: &mut Cursive, state: Rc<State>, name: &str) {
+    let last_selected = {
+        let mut path = state.path.borrow_mut();
+        if name.is_empty() {
+            if path.is_empty() {
+                s.quit();
+                None
+            } else {
+                path.pop()
+            }
         } else {
-            chgat(max_width as i32, A_NORMAL(), 0);
+            path.push(name.into());
+            None
         }
-    }
+    };
 
-    mvprintw(3 + state.hosts.hosts.len() as i32 + 3, 5, 
-             "q to exit, up/down/k/j to move selection, enter to confirm");
+    match state.current_item() {
+        Either::Left(definition) => render_current_definition(s, state.clone(), definition),
+        Either::Right(group) => render_current_group(s, state.clone(), group, last_selected),
+    }
 }
 
-fn execute(state: &mut State) -> ! {
-    endwin();
+fn format_path<I: IntoIterator>(path: I) -> String where I::Item: AsRef<str> {
+    let mut result = String::new();
 
-    let args = state.hosts.hosts[*state.find_selected()].to_cmd_line();
-    fn wrap_quotes_if_needed(s: &String) -> String {
-        if s[].find(char::is_whitespace).is_some() {
-            format!("'{}'", s)
-        } else {
-            s.clone()
-        }
+    for part in path {
+        result.push_str("/");
+        result.push_str(part.as_ref());
     }
-    println!("Executing ssh {}...", 
-             args.iter().map(wrap_quotes_if_needed).collect::<Vec<String>>().connect(" "));
 
-    exec::exec("ssh", args);
-    fail!("Cannot execute ssh: {}", os::last_os_error());
+    if result.is_empty() {
+        result.push_str("/")
+    }
+
+    result
 }
 
-fn react(state: &mut State) -> bool {
-    macro_rules! one_of(
-        ($e:expr ~ $($p:expr),+) => (
-            $($e == $p as i32 ||)+ false
-        )
-    )   
-    let ch = getch();
-    match ch {
-        c if one_of!(c ~ KEY_UP,   b'k') => state.move_up(),
-        c if one_of!(c ~ KEY_DOWN, b'j') => state.move_down(),
-        c if c == b'\n' as i32 => execute(state),
-        c if c == b'q' as i32 => return false,
-        _ => {}
-    }
-    true
-}
-
-fn init_ui() {
-    initscr();
-    cbreak();
-    keypad(stdscr, true);
-    noecho();
-}
-
-pub fn start(hosts: data::Hosts) {
-    init_ui();
-
-    let mut state = State::new(hosts);
-    loop {
-        render(&mut state);
-        if !react(&mut state) {
-            break;
-        }
-    }
-
-    endwin();
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{num_len, compute_widths};
-
-    use data;
-
-    macro_rules! smap(
-        ($($k:expr -> $v:expr),*) => ({
-            let mut hm = ::std::collections::TreeMap::new();
-            $(hm.insert($k.to_string(), $v);)*
-            hm
-        })
-    )
-
-    #[test]
-    fn test_num_len() {
-        assert_eq!(1, num_len(0u));
-        assert_eq!(1, num_len(1i));
-        assert_eq!(1, num_len(7u16));
-        assert_eq!(2, num_len(82i32));
-        assert_eq!(16, num_len(1234567812345678u64));
-    }
-
-    #[test]
-    fn test_compute_widths() {
-        let h = data::Hosts {
-            hosts: smap![
-                "first-name" -> data::Host::new("abcd", 22, "host-1", Some("key.pem")),
-                "second-name" -> data::Host::new("de", 1234, "longer-host", None)
-            ]
-        };
-        assert_eq!((1, 11, 19, 46), compute_widths(&h));
-    }
+fn execute_definition(s: &mut Cursive, state: Rc<State>) {
+    state.execute.set(true);
+    s.quit();
 }

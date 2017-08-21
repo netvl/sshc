@@ -30,12 +30,12 @@ host = "be-2.example.com"
 # tunnel = false
 # no_command = false
 
-# ssh -p 2222 user@some.server -t ssh -i /a/b/c.pem -p 1234 serverplex -t ssh -i ~/whatever.pem -p 1234 googolplex
-[my]
-googolplex = [
+# ssh -p 2222 user@some.server -t ssh -i /a/b/c.pem -p 1234 whatever -t ssh -i ~/whatever.pem -p 1234 unknown
+[a.b]
+unknown = [
   { host = "some.server", port = 2222, user = "user" },
-  "serverplex:1234:/a/b/c.pem",
-  { host = "googolplex:1234", key = "~/whatever.pem" }
+  { host = "whatever:1234:/a/b/c.pem" },
+  { host = "unknown:1234", key = "~/whatever.pem" }
 ]
 
 # Equivalent:
@@ -58,52 +58,55 @@ googolplex = [
 # tunnel = "1.2.3.4:|:12345"
 # tunnel = "1.2.3.4:12345|:"
 
-# ssh -L 12345:localhost:12345 serverplex -t ssh -L 12345:localhost:12345 transplex -N
+# ssh -L 12345:localhost:12345 whatever -t ssh -L 12345:localhost:12345 something -N
 [my]
 whatever1 = [
-  { host = "serverplex", tunnel = 12345 },
-  { host = "transplex" },  # taken from above
+  { host = "whatever", tunnel = 12345 },
+  { host = "something" },  # taken from above
 ]
 
-# ssh -L 1221:localhost:4443 serverplex -t ssh -L 4443:localhost:443 transplex -N
+# ssh -L 1221:localhost:4443 whatever -t ssh -L 4443:localhost:443 something -N
 whatever2full = [
-  { host = "serverplex", tunnel = ":1221|:4433" },
-  { host = "transplex", tunnel = ":4443|:443" }
+  { host = "whatever", tunnel = ":1221|:4433" },
+  { host = "something", tunnel = ":4443|:443" }
 ]
 
-# ssh -L 1221:transplex:443 serverplex -N
-whatever2alternative = [{ host = "serverplex", tunnel = ":1221|transplex:443" }]
+# ssh -L 1221:something:443 whatever -N
+whatever2alternative = [{ host = "whatever", tunnel = ":1221|something:443" }]
 
 # ssh host1 -t ssh host2 -t ssh -A -L 12345:localhost:12345 host3 -t ssh -A -L 12345:localhost:12345 host4 -t ssh -L 12345:localhost:12345 host5 -N
 whatever4 = [
-  "host1",
-  "host2",
+  { host = "host1" },
+  { host = "host2" },
   { host = "host3", tunnel = 12345 },  # falls "down", incl. agent_passthrough = true
-  "host4",
-  "host5"
+  { host = "host4" },
+  { host = "host5" }
 ]
 
-# ssh -A -L 1221:localhost:4443 serverplex -t ssh -L 4443:localhost:443 transplex -N
+# ssh -A -L 1221:localhost:4443 whatever -t ssh -L 4443:localhost:443 something -N
 whatever2 = [
-    { host = "serverplex", tunnel = ":1221|:4443" },
-    { host = "transplex", tunnel = ":4443|:443" }
+    { host = "whatever", tunnel = ":1221|:4443" },
+    { host = "something", tunnel = ":4443|:443" }
 ]
 #include_local = true       # default: true
 #intermediate_port = 4433   # default: =local_port
 #local_port = 1221          # default: =target_port
 #target_port = 443
-#chain = ["serverplex", "transplex"]
+#chain = ["whatever", "something"]
 
-# ssh -A -L 12345:localhost:12345 serverplex -t ssh -L 12345:localhost:12345 transplex -N
+# ssh -A -L 12345:localhost:12345 whatever -t ssh -L 12345:localhost:12345 something -N
 whatever2simpler = [
-    { host = "serverplex", tunnel = 12345 },
-    "transplex"
+    { host = "whatever", tunnel = 12345 },
+    { host = "something" },
 ]
 
-# ssh -A -L 12345:localhost:12345 host1 -t ssh -A -L 12345:localhost:12345 host2 -t ssh -A -L 12345:localhost:12345 -t ssh -L 1234:localhost:12345 host4 -N
+# ssh -A -L 12345:localhost:12345 host1 -t \
+#   ssh -A -L 12345:localhost:12345 host2 -t \
+#   ssh -A -L 12345:localhost:12345 -t \
+#   ssh -A -L 1234:localhost:12345 host4
 whatever3 = [
     { host = "host1", tunnel = 12345 },
-    "host2",
-    "host3",
-    "host4"
+    { host = "host2" },
+    { host = "host3" },
+    { host = "host4", agent_passthrough = true, no_command = false }
 ]
