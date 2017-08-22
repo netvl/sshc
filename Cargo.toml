@@ -1,7 +1,14 @@
 [package]
-authors = ["Vladimir Matveev <vladimir.matweev@gmail.com>"]
 name = "sshc"
 version = "1.0.0"
+authors = ["Vladimir Matveev <vladimir.matweev@gmail.com>"]
+description = "A simple TUI-based connections/tunnels manager for SSH"
+homepage = "https://github.com/netvl/sshc"
+repository = "https://github.com/netvl/sshc"
+readme = "README.md"
+keywords = ["ssh", "cli", "tui"]
+categories = ["command-line-utilities"]
+license = "MIT"
 
 [dependencies]
 # Command line args
