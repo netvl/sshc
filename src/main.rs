@@ -66,7 +66,7 @@ fn main() {
                         group = g;
                     } else {
                         break;
-                    }
+                    },
                 _ => {}
             }
         }
