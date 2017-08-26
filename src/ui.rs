@@ -2,9 +2,9 @@ use std::rc::Rc;
 use std::cell::{Cell, RefCell};
 
 use cursive::Cursive;
-use cursive::event::Key;
+use cursive::event::{Key, EventResult};
 use cursive::traits::*;
-use cursive::views::{SelectView, Dialog, LinearLayout, TextView, DummyView};
+use cursive::views::{SelectView, OnEventView, Dialog, LinearLayout, TextView, DummyView};
 use either::Either;
 use itertools::Itertools;
 
@@ -83,6 +83,27 @@ fn render_current_group(s: &mut Cursive, state: Rc<State>, group: &ConfigGroup, 
             select.set_selection(idx);
         }
     }
+
+    let select = OnEventView::new(select)
+        .on_pre_event('e', {
+            let state = state.clone();
+            move |s| {
+                s.call_on_id("select", |sel: &mut SelectView| {
+                    let selection = (*sel.selection()).clone();
+                    state.path.borrow_mut().push(selection);
+                });
+                execute_definition(s, state.clone());
+            }
+        })
+        .on_pre_event_inner('k', |s| {
+            s.select_up(1);
+            Some(EventResult::Consumed(None))
+        })
+        .on_pre_event_inner('j', |s| {
+            s.select_down(1);
+            Some(EventResult::Consumed(None))
+        })
+        .with_id("select");
 
     let layout = LinearLayout::vertical()
         .child(TextView::new(format_path(state.path.borrow().iter())))
