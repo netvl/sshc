@@ -30,6 +30,7 @@ itertools = "0.6"
 
 # Console UI
 [dependencies.cursive]
-version = "0.6"
+#version = "0.6"
+git = "https://github.com/gyscos/Cursive"
 default-features = false
 features = ["termion-backend"]
