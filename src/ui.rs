@@ -148,7 +148,9 @@ fn render_current_definition(s          : &mut Cursive,
     s.pop_layer();
 
     let layout = LinearLayout::vertical()
-        .child(TextView::new("Will execute the following command:"))
+        .child(TextView::new(
+            format!("Will {} the following command:",
+                    if dry_run { "print" } else { "execute" })))
         .child(DummyView)
         .child(TextView::new(Execution::from(definition.clone()).command_line()))
         .child(DummyView)
