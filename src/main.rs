@@ -33,7 +33,7 @@ fn main() {
         )
         .args_from_usage(
             "-p, --profile=[PROFILE] 'Run the specified profile immediately'
-             -d, --dry-run 'Just print the executed command if the profile is specified'"
+             -d, --dry-run 'Just print the command'"
         )
         .get_matches();
 
@@ -47,6 +47,8 @@ fn main() {
             std::process::exit(1)
         }
     };
+
+    let dry_run = matches.is_present("dry-run");
 
     if let Some(profile) = matches.value_of("profile") {
         let parts: Vec<_> = profile.split(".").collect();
@@ -73,7 +75,7 @@ fn main() {
 
         if let Some(definition) = definition {
             let mut e = Execution::from(definition);
-            if matches.is_present("dry-run") {
+            if dry_run {
                 println!("{}", e.command_line());
             } else {
                 e.run();
@@ -85,7 +87,7 @@ fn main() {
         }
 
     } else {
-        ui::run(config);
+        ui::run(config, dry_run);
     }
 }
 

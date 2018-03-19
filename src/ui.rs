@@ -30,7 +30,8 @@ impl State {
     }
 }
 
-pub fn run(config: Config) {
+pub fn run(config  : Config,
+           dry_run : bool) {
     let state = Rc::new(State {
         config,
         path: RefCell::new(Vec::new()),
@@ -39,30 +40,46 @@ pub fn run(config: Config) {
 
     let mut siv = Cursive::new();
 
-    render_current_group(&mut siv, state.clone(), &state.config.root, None);
+    render_current_group(&mut siv,
+                         state.clone(),
+                         &state.config.root,
+                         None,
+                         dry_run);
 
     siv.run();
     drop(siv);  // to dispose of backend messing with the terminal
 
     if state.execute.get() {
         if let Either::Left(definition) = state.current_item() {
-            let execution = Execution::from(definition.clone());
-            execution.run();
+            let mut e = Execution::from(definition.clone());
+            if dry_run {
+                println!("{}", e.command_line());
+            } else {
+                e.run();
+            }
         }
     }
 }
 
-fn render_current_group(s: &mut Cursive, state: Rc<State>, group: &ConfigGroup, last_selected: Option<String>) {
+fn render_current_group(s             : &mut Cursive,
+                        state         : Rc<State>,
+                        group         : &ConfigGroup,
+                        last_selected : Option<String>,
+                        dry_run       : bool) {
     s.pop_layer();
 
     let mut select = SelectView::<String>::new()
         .on_submit({
             let state = state.clone();
-            move |s: &mut Cursive, name: &String| handle_selection_submit(s, state.clone(), name)
+            move |s: &mut Cursive, name: &String|
+            handle_selection_submit(s,
+                                    state.clone(),
+                                    name,
+                                    dry_run)
         });
 
     let mut items = Vec::new();
-    
+
     if !state.path.borrow().is_empty() {
         items.push(("../".into(), "".into()));
     }
@@ -120,19 +137,26 @@ fn render_current_group(s: &mut Cursive, state: Rc<State>, group: &ConfigGroup, 
     // up one level
     s.add_global_callback(Key::Esc, {
         let state = state.clone();
-        move |s| handle_selection_submit(s, state.clone(), "")
+        move |s| handle_selection_submit(s, state.clone(), "", dry_run)
     });
 }
 
-fn render_current_definition(s: &mut Cursive, state: Rc<State>, definition: &ConfigDefinition) {
+fn render_current_definition(s          : &mut Cursive,
+                             state      : Rc<State>,
+                             definition : &ConfigDefinition,
+                             dry_run    : bool) {
     s.pop_layer();
 
     let layout = LinearLayout::vertical()
-        .child(TextView::new("Will execute the following command:"))
+        .child(TextView::new(
+            format!("Will {} the following command:",
+                    if dry_run { "print" } else { "execute" })))
         .child(DummyView)
         .child(TextView::new(Execution::from(definition.clone()).command_line()))
         .child(DummyView)
-        .child(TextView::new("Press Enter to run, Esc to go back"));
+        .child(TextView::new(
+            format!("Press Enter to {}, Esc to go back",
+                    if dry_run { "print" } else { "run" })));
 
     s.add_layer(
         Dialog::around(layout)
@@ -149,12 +173,15 @@ fn render_current_definition(s: &mut Cursive, state: Rc<State>, definition: &Con
         move |s: &mut Cursive| {
             s.add_global_callback(Key::Enter, |_| {});
             s.add_global_callback(Key::Esc, |_| {});
-            handle_selection_submit(s, state.clone(), "")
+            handle_selection_submit(s, state.clone(), "", dry_run)
         }
     });
 }
 
-fn handle_selection_submit(s: &mut Cursive, state: Rc<State>, name: &str) {
+fn handle_selection_submit(s       : &mut Cursive,
+                           state   : Rc<State>,
+                           name    : &str,
+                           dry_run : bool) {
     let last_selected = {
         let mut path = state.path.borrow_mut();
         if name.is_empty() {
@@ -171,8 +198,15 @@ fn handle_selection_submit(s: &mut Cursive, state: Rc<State>, name: &str) {
     };
 
     match state.current_item() {
-        Either::Left(definition) => render_current_definition(s, state.clone(), definition),
-        Either::Right(group) => render_current_group(s, state.clone(), group, last_selected),
+        Either::Left(definition) => render_current_definition(s,
+                                                              state.clone(),
+                                                              definition,
+                                                              dry_run),
+        Either::Right(group)     => render_current_group(s,
+                                                         state.clone(),
+                                                         group,
+                                                         last_selected,
+                                                         dry_run),
     }
 }
 
