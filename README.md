@@ -1,5 +1,9 @@
 # sshc: A simple SSH connection manager
 
+**Unmaintained: consider using SSH's own configuration system, like host aliases, instead.**
+
+---
+
 `sshc` is a very simple SSH connection manager with a textual dialog-based UI. Basically, it provides a config file format and a UI which turns this config into an `ssh` command execution. The coniguration file allows defining chains of connections, as well as port forwarding.
 
 ## How to build
